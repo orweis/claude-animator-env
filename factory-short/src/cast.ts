@@ -246,10 +246,11 @@ const q30 = (u: number) => q(u, 30);
 
 /** billing sheets bursting out of the drawer */
 const papers = (out: Stage, t: number, t0: number) => {
+  // the sheets keep flying until the shot ends (u runs past 1 and drifts them down out of frame) - no pop
   const u = (t - t0) / 1.6;
-  if (u < 0 || u >= 1) return;
-  const [x, , z] = R3(ROOM.cab);
-  out.fx.push({ key: `papers${q30(u)}`, cw: 600, ch: 600, draw: (p) => fxPapers(p, q30(u)), x, y: 1.35, z: z + 0.75, w: 2.2, h: 2.2 });
+  if (u < 0 || u >= 3) return;
+  const [x, , z] = R3(ROOM.cab), uu = Math.min(1, u), fall = Math.max(0, u - 1);
+  out.fx.push({ key: `papers${q30(uu)}`, cw: 600, ch: 600, draw: (p) => fxPapers(p, q30(uu)), x: x + 0.1 * fall, y: 1.35 - 1.1 * fall * fall, z: z + 0.75, w: 2.2, h: 2.2, rot: 0.2 * fall });
   if (u < 0.25) out.fx.push({ key: `burst${q30(u * 4)}`, cw: 500, ch: 500, draw: (p) => fxBurst(p, q30(u * 4), "#fff3b0"), x, y: 1.15, z: z + 0.7, w: 1.0, h: 1.0 });
 };
 
