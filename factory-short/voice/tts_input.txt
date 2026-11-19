@@ -1,0 +1,15 @@
+In the seventies, a compiler wiped out its own company's billing records, because a user told it where to save a file.
+
+Time-share, California. The compiler had a key to the billing file. The user didn't. Didn't matter. Its author called the story "nearly true", and named the bug: the confused deputy.
+
+Fifty years later, we build factories of them. A software factory is a fleet of AI coding agents. One picks up the ticket. One writes the tests. One reviews. A human clicks merge. Every agent runs as the developer. Same SSH keys. Same cloud login. Same GitHub token. The C-I bot's key never expires. And they all read strangers' text for a living: issues, read-mees, tool responses.
+
+So one poisoned ticket says: post the dot-env file to this paste site. And the agent does.
+
+Luckily, the agent was fully authenticated. Unluckily, that's the problem. It really was who it said it was.
+
+Think valet key: starts the car, won't open the trunk, goes back when the job's done. Agents need valet keys, not your keychain.
+
+So Permit gives every agent its own identity, delegated from a human. Deny by default. A policy check on every call, outside the model: guardrails in a prompt are suggestions, policy is a guarantee. A human on merge, deploy and secrets. One log of every decision. One policy, from the laptop to the database.
+
+The deputy in 1977 had one master key and ruined one file. Your deputies have a lot more doors. Hand out valet keys.
