@@ -8,17 +8,18 @@ Cloud environment setup for making animated story shorts with the
 It is not a standalone library; it prepares a machine. Version history: [CHANGELOG.md](CHANGELOG.md).
 
 ## What it does
-1. Installs the Python packages the audio and QA scripts need (`requirements.txt`: numpy, scipy, Pillow).
+1. Installs the Python packages the audio and QA scripts need (numpy, scipy, Pillow; ranges mirrored in `requirements.txt`).
 2. Fetches the skill into `$SKILL_DIR` (default `~/.claude/skills/cartoon-3d-short`), pinned to the full commit
    `e3b817b6afc6cd413466d43f11ba31209e034bbf`, the version that was security-reviewed (no network calls, eval,
    credential reads, hidden Unicode or prompt injection; images are real JPEGs). Review any newer commit before moving
    the pin. An existing checkout at a different commit makes the script abort.
 3. Builds a Remotion project in `$PROJECT_DIR` (default `~/remotion-shorts`) with the bridge template in
    `src/videos/bridge` (composition `BridgeShort`) and the helper scripts in `scripts/`, then runs `npm ci` from the
-   committed lockfile (`templates/package-lock.json`).
+   committed lockfile (`templates/package-lock.json`) when run from a checkout of this repo, otherwise `npm install`
+   (exact version pins). The script is self-contained, so it works pasted as the environment setup script or via `bash -s`.
 
 ## Prerequisites
-`bash`, `git`, `python3` with `pip`, Node.js and `npm` (tested with Node 22, Python 3.13), network access to GitHub,
+`bash`, `git`, `python3` with `pip`, Node.js and `npm` (Node 22 used for the lockfile and CI install check), network access to GitHub,
 PyPI and npm, and a Chromium (default `/opt/pw-browsers/chromium`) for stills.
 
 ## Usage
@@ -33,6 +34,12 @@ Then ask Claude: *"Use the cartoon short skill and make a short about ..."*.
 The script is idempotent. `package.json`, `tsconfig.json`, `src/Root.tsx`, `src/index.ts` and the copied skill
 templates are only created when missing, so your edits survive re-runs. Patches are verified and the script fails loudly
 if upstream text no longer matches.
+
+## Migrating from 1.x (2.0.0)
+- A skill checkout not at the pinned commit now aborts: delete it or set `SKILL_SHA` to a reviewed commit.
+- Default paths follow `$HOME` (same as `/root/...` when root). Non-root users get `~/...` instead of `/root/...`.
+- Python packages are range-bounded; `npm ci` falls back to `npm install` if the lockfile is out of sync.
+- Existing installs made by 1.x re-run cleanly; your edited files are kept. Full list in [CHANGELOG.md](CHANGELOG.md).
 
 ## Configuration
 | Variable | Default | Purpose |
@@ -49,7 +56,7 @@ if upstream text no longer matches.
 - **Linux browser.** `scripts/bridge-stills.mjs` hard-coded a Windows Chrome path. It now uses
   `$BROWSER_EXECUTABLE` or the preinstalled `/opt/pw-browsers/chromium`.
 - **No GPU.** WebGL defaults to software rendering (`swangle`). Stills take ~20 s each at scale 0.5.
-- **Project path.** `scripts/bridge_merge.py` points at `$PROJECT_DIR`.
+- **Project path.** `scripts/bridge_merge.py` points at the absolute `$PROJECT_DIR`.
 
 ## Why these versions
 With the latest React 19 / `@react-three/fiber` 9 / `@react-three/postprocessing` 3, the post-processing composer
@@ -67,7 +74,7 @@ lantern and canoe. Check with `ls public/bridge/kenney/*.glb | wc -l` (expect 26
 ## Troubleshooting
 - `patch target not found`: the upstream skill text changed; keep the pin or update the patches in `setup.sh`.
 - `is at <sha>, expected <sha>`: the skill directory is at another commit; remove it and re-run.
-- pip `externally-managed-environment`: handled automatically with `--break-system-packages`; use a venv if you prefer.
+- pip `externally-managed-environment`: retried automatically with `--break-system-packages`; use a venv if you prefer.
 
 ## Development
 ```bash

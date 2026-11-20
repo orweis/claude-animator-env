@@ -97,7 +97,10 @@ out="$(HOME="$H" PATH="$EMPTYBIN" /bin/bash "$ROOT/setup.sh" 2>&1)"; rc=$?
 check "missing git fails early" test "$rc" -ne 0
 check "missing tool is named" bash -c "grep -q 'required command not found: git' <<<\"\$1\"" _ "$out"
 new_env badpath
-check_not "PROJECT_DIR with quote rejected" env PROJECT_DIR="$H/x\"y" HOME="$H" SKILL_REPO_URL="file://$FIX" SKILL_SHA="$SHA" SKIP_NPM=1 SKIP_PIP=1 bash "$ROOT/setup.sh"
+out="$(env PROJECT_DIR="$H/x\"y" HOME="$H" SKILL_REPO_URL="file://$FIX" SKILL_SHA="$SHA" SKIP_NPM=1 SKIP_PIP=1 bash "$ROOT/setup.sh" 2>&1)"; rc=$?
+check "PROJECT_DIR with quote rejected" test "$rc" -ne 0
+check "quote rejection is explained" bash -c "grep -q 'must not contain quotes' <<<\"\$1\"" _ "$out"
+check "rejection happens before any side effects" bash -c "[ ! -e '$H/.claude' ] && [ -z \"\$(ls -A '$H')\" ]"
 
 # 8. interrupted earlier run (empty dir) recovers
 new_env recover
@@ -118,6 +121,60 @@ assert all(re.fullmatch(r"\d+\.\d+\.\d+",v) for d in (p["dependencies"],p["devDe
 PY
 check "pin in setup.sh is a full 40-char sha" grep -Eq 'SKILL_SHA:-[0-9a-f]{40}\}' "$ROOT/setup.sh"
 check "tsconfig is valid JSON" python3 -c "import json;json.load(open('$ROOT/templates/tsconfig.json'))"
+
+# 10. standalone: script copied outside the repo (cloud-environment usage)
+new_env standalone
+cp "$ROOT/setup.sh" "$WORK/standalone/setup-copy.sh"
+check "script runs from outside the repo" env HOME="$H" SKILL_REPO_URL="file://$FIX" SKILL_SHA="$SHA" SKIP_NPM=1 SKIP_PIP=1 bash "$WORK/standalone/setup-copy.sh"
+check "standalone creates all project files" bash -c "cd '$H/remotion-shorts' && test -f package.json -a -f tsconfig.json -a -f src/Root.tsx -a -f src/index.ts"
+check "standalone has no lockfile (npm install path)" test ! -f "$H/remotion-shorts/package-lock.json"
+new_env piped
+check "script runs piped to bash -s" bash -c "HOME='$H' SKILL_REPO_URL='file://$FIX' SKILL_SHA='$SHA' SKIP_NPM=1 SKIP_PIP=1 bash -s < '$ROOT/setup.sh'"
+new_env nohome
+check "unset HOME falls back instead of crashing" bash -c "env -u HOME SKILL_DIR='$H/skill' PROJECT_DIR='$H/proj' SKILL_REPO_URL='file://$FIX' SKILL_SHA='$SHA' SKIP_NPM=1 SKIP_PIP=1 bash '$ROOT/setup.sh'"
+
+# 11. upgrade from an install made by the previous (1.0/1.1) scripts
+new_env legacy
+run_setup >/dev/null 2>&1
+sed -i "s|expanduser(\"$H/remotion-shorts\")|expanduser(\"~/remotion-shorts\")|" "$(P)/scripts/bridge_merge.py"
+check "legacy ~/remotion-shorts patch is accepted" run_setup
+check "legacy install left as is" grep -qF 'expanduser("~/remotion-shorts")' "$(P)/scripts/bridge_merge.py"
+
+# 12. npm / pip invocation, with recording stubs on PATH
+new_env stubs
+STUB="$WORK/stubs/bin"; mkdir -p "$STUB"; LOG="$WORK/stubs/calls.log"; : > "$LOG"
+printf '#!/bin/sh\necho "npm $*" >> "%s"\n' "$LOG" > "$STUB/npm"
+printf '#!/bin/sh\necho "python3 $*" >> "%s"\n' "$LOG" > "$STUB/python3"
+chmod +x "$STUB/npm" "$STUB/python3"
+stub_setup() { HOME="$H" PATH="$STUB:$PATH" SKILL_REPO_URL="file://$FIX" SKILL_SHA="$SHA" "$@" bash "$ROOT/setup.sh"; }
+check "setup with stubbed npm/pip succeeds" stub_setup env
+check "pip gets bounded packages" grep -q 'pip install -q numpy>=1.26,<3 scipy>=1.11,<2 pillow>=10,<14' "$LOG"
+check "npm ci used with the repo lockfile" grep -q '^npm ci ' "$LOG"
+: > "$LOG"
+# shellcheck disable=SC2016  # $1/$* are meant for the generated stub script
+printf '#!/bin/sh\necho "npm $*" >> "%s"\n[ "$1" = ci ] && exit 1\nexit 0\n' "$LOG" > "$STUB/npm"
+rm -f "$(P)/package-lock.json"
+check "npm install fallback when npm ci fails" stub_setup env
+check "fallback ran npm install" grep -q '^npm install ' "$LOG"
+printf '#!/bin/sh\necho "python3 $*" >> "%s"\necho "error: externally-managed-environment" >&2\ncase "$*" in *break-system*) exit 0;; esac\nexit 1\n' "$LOG" > "$STUB/python3"
+check "pep668 retries with --break-system-packages" stub_setup env
+printf '#!/bin/sh\necho "network down" >&2\nexit 1\n' > "$STUB/python3"
+out="$(stub_setup env 2>&1)"; rc=$?
+check "non-PEP668 pip failure is surfaced, not retried" bash -c "test $rc -ne 0 && grep -q 'network down' <<<\"\$1\" && ! grep -q break-system <<<\"\$1\"" _ "$out"
+
+# 13. failed checkout leaves no temp dir
+new_env tmpclean
+printf 'bad' > "$FIX/.git/HEAD"
+check_not "broken upstream fails" run_setup
+check "no temp dir left after failure" bash -c "! ls -A '$H/.claude/skills' 2>/dev/null | grep -q '^\.skill\.'"
+
+# 14. embedded templates match templates/ and requirements.txt
+extract() { awk -v fn="$1" '$0 ~ "^"fn"\\(\\)"{f=1;next} f&&/<<.(JSON|TSX|TS).$/{h=1;next} f&&h&&/^(JSON|TSX|TS)$/{exit} f&&h{print}' "$ROOT/setup.sh"; }
+check "embedded package.json == templates" diff <(extract write_package_json) "$ROOT/templates/package.json"
+check "embedded tsconfig == templates" diff <(extract write_tsconfig) "$ROOT/templates/tsconfig.json"
+check "embedded Root.tsx == templates" diff <(extract write_root_tsx) "$ROOT/templates/Root.tsx"
+check "embedded index.ts == templates" diff <(extract write_index_ts) "$ROOT/templates/index.ts"
+check "setup.sh pip pins match requirements.txt" bash -c "diff <(grep -o '\"[a-z]*>=[^\"]*\"' '$ROOT/setup.sh' | tr -d '\"' | sort) <(sort '$ROOT/requirements.txt')"
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

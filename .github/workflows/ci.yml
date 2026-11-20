@@ -19,3 +19,8 @@ jobs:
         run: bash tests/run.sh
       - name: Audit template lockfile
         run: cd templates && npm audit --package-lock-only --audit-level=high
+      - name: Install template lockfile with npm ci
+        run: |
+          # Uses the committed lockfile; verifies the lockfile matches package.json.
+          mkdir -p /tmp/proj/src && cp templates/package.json templates/package-lock.json templates/tsconfig.json /tmp/proj/
+          cd /tmp/proj && npm ci --ignore-scripts --no-audit --no-fund
