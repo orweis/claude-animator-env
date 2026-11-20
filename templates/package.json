@@ -1,0 +1,14 @@
+{
+  "name": "remotion-shorts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "studio": "remotion studio src/index.ts", "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "remotion": "4.0.545", "@remotion/cli": "4.0.545", "@remotion/three": "4.0.545",
+    "@remotion/bundler": "4.0.545", "@remotion/renderer": "4.0.545",
+    "react": "18.3.1", "react-dom": "18.3.1", "three": "0.170.0",
+    "@react-three/fiber": "8.18.0", "@react-three/postprocessing": "2.19.1", "postprocessing": "6.39.6"
+  },
+  "devDependencies": { "typescript": "5.9.3", "@types/react": "18.3.28", "@types/three": "0.170.0" }
+}
