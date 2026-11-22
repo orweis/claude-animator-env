@@ -1,0 +1,26 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: shellcheck -x -s bash setup.sh tests/run.sh
+      - name: Test suite
+        run: bash tests/run.sh
+      - name: Audit template lockfile
+        run: cd templates && npm audit --package-lock-only --audit-level=high
+      - name: Install template lockfile with npm ci
+        run: |
+          # Uses the committed lockfile; verifies the lockfile matches package.json.
+          mkdir -p /tmp/proj/src && cp templates/package.json templates/package-lock.json templates/tsconfig.json /tmp/proj/
+          cd /tmp/proj && npm ci --ignore-scripts --no-audit --no-fund
