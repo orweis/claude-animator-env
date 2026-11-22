@@ -84,5 +84,5 @@ bash tests/run.sh      # offline; uses a local fixture instead of GitHub
 CI runs the same on every push and pull request.
 
 ## License
-No license file is present, so default copyright applies; the repository owner needs to choose one. The upstream skill
+Licensed under the [Apache License, Version 2.0](LICENSE). The upstream skill
 has its own terms.

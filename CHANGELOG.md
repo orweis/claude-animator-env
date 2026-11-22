@@ -5,6 +5,9 @@ All notable changes to this project are documented here. The format follows
 
 ## [2.0.0] - 2026-11-20
 
+### License
+- The project is now licensed under the Apache License 2.0 (`LICENSE`).
+
 The resulting environment is the same (same pinned skill commit, Remotion stack and patches), but a few behaviours of
 the script itself changed. Because some can fail where the old script succeeded, this is a major release.
 
